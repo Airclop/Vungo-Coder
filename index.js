@@ -13,6 +13,7 @@ let isFileModified = false; // 文件是否被修改
 
 // 在文件开头添加支持的图片格式
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
+const MAX_FILE_SIZE = 1024 * 1024 * 10; // 最大文件大小（10MB）
 
 // 初始化编辑器
 require(['vs/editor/editor.main'], function() {
@@ -42,11 +43,6 @@ require(['vs/editor/editor.main'], function() {
         // 添加保存快捷键
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function() {
             saveCurrentFile();
-        });
-
-        // 监听编辑器内容变化
-        editor.onDidChangeModelContent(() => {
-            handleEditorChange();
         });
 
         console.log('Monaco Editor 初始化成功');
@@ -127,30 +123,36 @@ function setEditorLanguage(extension) {
         'html': 'html',
         'css': 'css',
         'json': 'json',
-        'ts': 'typescript'
+        'ts': 'typescript',
+        'xml': 'xml',
+        'yaml': 'yaml',
+        'yml': 'yaml',
+        'java': 'java',
+        'c': 'c',
+        'cpp': 'cpp',
+        'cs': 'csharp',
+        'php': 'php',
+        'rb': 'ruby',
+        'py': 'python',
+        'pl': 'perl',
+        'pm': 'perl',
+        'go': 'go',
+        'rs': 'rust',
+        'hs': 'haskell',
+        'lua': 'lua',
+        'r': 'r',
+        'sh': 'bash',
+        'bash': 'bash',
+        'ps1': 'powershell',
+        'psm1': 'powershell',
+        'bat': 'batch',
+        'cmd': 'batch',
+        'groovy': 'groovy',
+        'svg': 'xml',
     };
     
     const language = languageMap[extension] || 'plaintext';
     monaco.editor.setModelLanguage(editor.getModel(), language);
-}
-
-// 处理编辑器内容变化
-function handleEditorChange() {
-    if (!currentFileName) return;
-    
-    isFileModified = true;
-    updateTabStatus(currentFileName);
-    
-    // 重置自动保存定时器
-    if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer);
-    }
-    
-    autoSaveTimer = setTimeout(() => {
-        if (isFileModified) {
-            saveCurrentFile(true); // true表示是自动保存
-        }
-    }, AUTO_SAVE_DELAY);
 }
 
 // 更新标签页状态
@@ -165,25 +167,18 @@ function updateTabStatus(filename) {
     if (isFileModified) {
         if (!tab.classList.contains('modified')) {
             tab.classList.add('modified');
-            saveButton.innerHTML = '✨';
+            saveButton.innerHTML = '✔';
             saveButton.style.color = '#ffd700';
-            cancelButton.style.display = 'flex';  // 显示取消按钮
         }
     } else {
         tab.classList.remove('modified');
-        saveButton.innerHTML = '⚡';
+        saveButton.innerHTML = '✔';
         saveButton.style.color = '#4CAF50';
-        cancelButton.style.display = 'none';  // 隐藏取消按钮
     }
 }
 
 // 修改保存文件函数
 async function saveCurrentFile(isAutoSave = false) {
-    if (!currentFileName) {
-        alert('没有打开的文件');
-        return;
-    }
-
     const fileInfo = openFiles.get(currentFileName);
     if (!fileInfo || !fileInfo.handle) {
         alert('文件信息不完整');
@@ -276,6 +271,7 @@ function createTab(filename, content) {
     const existingTab = openFiles.get(filename)?.tab;
     if (existingTab) {
         activateTab(filename);
+        tabsContainer.removeChild(existingTab);
         return;
     }
     
@@ -295,18 +291,27 @@ function createTab(filename, content) {
     // 添加取消编辑按钮
     const cancelButton = document.createElement('span');
     cancelButton.className = 'tab-cancel-button';
-    cancelButton.title = '取消修改';
-    cancelButton.innerHTML = '↶';  // 使用更简单的箭头
+    cancelButton.title = '重置';
+    cancelButton.innerHTML = '❌';  // 使用更简单的箭头
     cancelButton.onclick = (e) => {
         e.stopPropagation();
-        cancelEditing(filename);
+        tabsContainer.removeChild(tab); // 移除标签页
+        showNotification('已关闭文件');
+        openFiles.delete(filename);
+        if (currentFileName === filename) {
+            currentFileName = null;
+            editor.setValue('');
+        } else {
+            activateTab(currentFileName); // 激活当前文件标签页
+        }
     };
+    
     
     // 添加保存按钮
     const saveButton = document.createElement('span');
     saveButton.className = 'tab-save-button';
     saveButton.title = '保存文件 (Ctrl+S)';
-    saveButton.innerHTML = '⚡';
+    saveButton.innerHTML = '✔';
     saveButton.onclick = (e) => {
         e.stopPropagation();
         currentFileName = filename;
@@ -334,23 +339,6 @@ function createTab(filename, content) {
     
     currentFileName = filename;
     tabsContainer.appendChild(tab);
-}
-
-// 添加取消编辑功能
-function cancelEditing(filename) {
-    const fileInfo = openFiles.get(filename);
-    if (!fileInfo || !fileInfo.originalContent) return;
-    
-    // 恢复到原始内容
-    editor.setValue(fileInfo.originalContent);
-    fileInfo.content = fileInfo.originalContent;
-    
-    // 重置修改状态
-    isFileModified = false;
-    updateTabStatus(filename);
-    
-    // 显示提示
-    showNotification('已恢复到上次保存的状态');
 }
 
 // 添加通用提示函数
@@ -536,6 +524,12 @@ async function openFileFromDirectory(fileHandle) {
         
         // 原有的文本文件处理逻辑
         const content = await file.text();
+        if (content.length > MAX_FILE_SIZE) {
+            // 提示用户文件过大
+            alert('文件过大，无法打开');
+            return;
+        }
+        
         openFiles.set(file.name, {
             handle: fileHandle,
             content: content
@@ -580,26 +574,25 @@ async function previewImage(file) {
         e.stopPropagation();
         cleanup();
     };
-    
     // 添加点击背景关闭预览
     previewContent.onclick = (e) => {
         if (e.target === previewContent) {
             cleanup();
         }
     };
-    
+
     // 防止图片点击事件冒泡
     previewImage.onclick = (e) => {
         e.stopPropagation();
     };
-    
+
     // 添加点击整个预览容器的事件
     imagePreview.onclick = (e) => {
         if (e.target === imagePreview) {
             cleanup();
         }
     };
-    
+
     // 添加ESC键关闭预览
     const escHandler = (e) => {
         if (e.key === 'Escape') {
@@ -612,19 +605,18 @@ async function previewImage(file) {
 
 // 侧边栏宽度调整功能
 function initSidebarResize() {
-    const sidebar = document.querySelector('.sidebar');
+const sidebar = document.querySelector('.sidebar');
     let isResizing = false;
     let startX;
     let startWidth;
-
     // 监听鼠标按下事件
     sidebar.addEventListener('mousedown', function(e) {
-        // 只在右边缘4px范围内响应
+    // 只在右边缘4px范围内响应
         if (e.offsetX > sidebar.offsetWidth - 4) {
-            isResizing = true;
-            startX = e.pageX;
-            startWidth = sidebar.offsetWidth;
-        }
+          isResizing = true;
+         startX = e.pageX;
+         startWidth = sidebar.offsetWidth;
+      }
     });
 
     // 监听鼠标移动事件
@@ -632,8 +624,8 @@ function initSidebarResize() {
         if (!isResizing) return;
 
         const width = startWidth + (e.pageX - startX);
-        
-        // 限制最小和最大宽度
+            
+            // 限制最小和最大宽度
         if (width >= 200 && width <= 800) {
             sidebar.style.width = width + 'px';
             // 刷新编辑器布局
