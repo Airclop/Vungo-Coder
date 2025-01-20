@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>轻量级代码编辑器</title>
+    <link rel="stylesheet" href="index.css">
+    <!-- Monaco Editor CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <div class="file-tree">
+                <div class="file-tree-header">
+                    <h3>文件目录</h3>
+                    <div class="file-tree-buttons">
+                        <button id="openDirBtn" title="打开目录">📁</button>
+                        <button id="openFileBtn" title="打开文件">📄</button>
+                    </div>
+                </div>
+                <div id="fileTreeContent" class="file-tree-content"></div>
+            </div>
+        </div>
+
+        <!-- 主编辑区域 -->
+        <div class="main-content">
+            <!-- 标签页区域 -->
+            <div class="tabs" id="editorTabs"></div>
+            
+            <!-- 编辑器容器 -->
+            <div id="editor-container"></div>
+        </div>
+    </div>
+
+    <!-- 将图片预览移到container外面 -->
+    <div class="image-preview" id="imagePreview">
+        <div class="preview-header">
+            <span class="preview-title"></span>
+            <button class="close-preview">×</button>
+        </div>
+        <div class="preview-content">
+            <img src="" alt="预览图片">
+        </div>
+    </div>
+    
+    <script src="index.js"></script>
+</body>
+</html>
