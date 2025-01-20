@@ -2,7 +2,7 @@
 可通过http://airclop.github.io/Vungo-Coder在线使用
 
 亮点：
-1.VSCode 代码提示
+1.VSCode 代码提示\n
 2.暗色主题更显美观
 3.完全开源，一起建设
 
